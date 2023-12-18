@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "py"
+version = "0.1.0"
+description = ""
+authors = ["Evgeny Kartavykh <evgeny@getquin.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+Telethon = "^1.32"
+httpx = "^0.25"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
