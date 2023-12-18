@@ -1,6 +1,5 @@
 import logging
 
-from utils import get_env, get_env_int
 from service import StatsService
 from handlers import HandlerRegistry
 from .models import Message

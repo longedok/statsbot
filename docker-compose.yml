@@ -7,8 +7,6 @@ services:
     env_file:
       - .env
     stop_signal: SIGINT
-    #logging:
-      #driver: gcplogs
     restart: on-failure
     entrypoint: /venv/bin/python main.py
     volumes:

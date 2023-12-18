@@ -20,7 +20,6 @@ COPY poetry.lock pyproject.toml /app/
 RUN . /venv/bin/activate && poetry install --no-dev --no-root
 
 COPY . /app
-#RUN . /venv/bin/activate && poetry build
 
 FROM base as final
 

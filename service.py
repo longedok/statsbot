@@ -3,9 +3,6 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from dataclasses import dataclass
 
-from telethon.sync import TelegramClient, events
-
-from utils import get_env_int, get_env
 from settings import CHAT_ID, DEFAULT_TZ
 
 logger = logging.getLogger(__name__)
@@ -81,6 +78,20 @@ class StatsService:
 
         return report
 
+    async def _get_messages(self):
+        from_date = self._get_from_date()
+
+        async for message in self.telegram_client.iter_messages(
+            CHAT_ID, reverse=True, offset_date=from_date
+        ):
+            yield message
+ 
+    @staticmethod
+    def _get_from_date():
+        return (get_local_time() - timedelta(weeks=1)).replace(
+            hour=0, minute=0, second=0, microsecond=0,
+        )
+
     @staticmethod
     def _get_message_stats(message):
         num_views = get_number(message.views)
@@ -96,18 +107,4 @@ class StatsService:
             num_replies = 0
 
         return MessageStats(num_views, num_reactions, num_forwards, num_replies)
- 
-    @staticmethod
-    def _get_from_date():
-        return (get_local_time() - timedelta(weeks=1)).replace(
-            hour=0, minute=0, second=0, microsecond=0,
-        )
-
-    async def _get_messages(self):
-        from_date = self._get_from_date()
-
-        async for message in self.telegram_client.iter_messages(
-            CHAT_ID, reverse=True, offset_date=from_date
-        ):
-            yield message
 

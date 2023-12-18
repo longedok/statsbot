@@ -11,6 +11,8 @@ logging.basicConfig(
     format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s', level=logging.INFO,
 )
 
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 telegram_client = TelegramClient(SESSION_PATH, API_ID, API_HASH) 
 
 
