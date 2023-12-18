@@ -4,10 +4,11 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=on \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
+RUN mkdir /data
 
 FROM base as builder
 
-RUN apk --no-cache add curl gcc musl-dev libffi-dev #openssl-dev
+RUN apk --no-cache add curl gcc musl-dev libffi-dev
 ENV POETRY_VIRTUALENVS_CREATE=false \
    POETRY_HOME='/usr/local' \
    POETRY_VERSION='1.7.1'

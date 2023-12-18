@@ -1,0 +1,22 @@
+version: "3.9"
+services:
+  bot:
+    image: longedok/statsbot:latest
+    build: .
+    environment:
+      - SESSION_PATH=/data/stats-bot
+    env_file:
+      - .env
+    stop_signal: SIGINT
+    #logging:
+      #driver: gcplogs
+    restart: on-failure
+    entrypoint: /venv/bin/python main.py
+    volumes:
+      - data:/data
+      - type: bind
+        source: stats-bot.session
+        target: /data/stats-bot.session
+volumes:
+  data:
+

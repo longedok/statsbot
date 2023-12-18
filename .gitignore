@@ -1,3 +1,4 @@
 .env
 __pycache__/
 *.session
+docker-compose.override.yml
