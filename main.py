@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import logging
 import asyncio
+import logging
 
 from telethon.sync import TelegramClient
 
@@ -10,9 +10,9 @@ from settings import API_ID, API_HASH, SESSION_PATH
 logging.basicConfig(
     format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s', level=logging.INFO,
 )
-
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("telethon").setLevel(logging.INFO)
+
 telegram_client = TelegramClient(SESSION_PATH, API_ID, API_HASH) 
 
 

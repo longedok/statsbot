@@ -1,10 +1,13 @@
+run:
+	poetry run python3 main.py
+
 build:
 	docker buildx build --platform linux/amd64 -t longedok/statsbot .
 
 push:
 	docker push longedok/statsbot
 
-update: build push
+publish: build push
 
 deploy:
 	git pull
@@ -20,4 +23,7 @@ shutdown:
 ssh:
 	gcloud compute ssh --zone "us-east1-b" "longedok@hobby" --project \
 		"telegram-bot-303420"
+
+logs:
+	docker compose logs bot -f
 
