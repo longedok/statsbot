@@ -1,6 +1,6 @@
 import logging
+import asyncio
 
-from service import StatsService
 from handlers import HandlerRegistry
 from .models import Message
 from .client import BotApiClient
@@ -14,27 +14,31 @@ class Bot:
         self.telegram_client = telegram_client
 
     async def start(self):
-        await self._set_commands()
-        await self._process_updates()
+        await asyncio.gather(self._set_commands(), self._process_updates())
 
     async def _set_commands(self):
-        logger.info("Setting bot commands")
+        logger.info("Start setting bot commands")
         commands = []
         for handler_cls in HandlerRegistry.get_handlers():
             if not handler_cls.description:
                 continue
             commands.append(handler_cls.as_dict())
+
         if commands:
-            resp = await self.bot_api.set_my_commands(commands)
+            await self.bot_api.set_my_commands(commands)
+            logger.info(f"Finished setting bot commands: {len(commands)} commands set")
+        else:
+            logger.warning("No commands to set")
 
     async def _process_updates(self):
-        logger.info("Start processing updates")
+        logger.info("Enter updates-processing loop")
         while True:
             for update in await self.bot_api.get_updates():
                 await self._process_update(update)
 
     async def _process_update(self, update):
-        logger.info("Processing update %s", update)
+        update_id = update.get("update_id")
+        logger.info("Start processing update %s: %s", update_id, update)
         if message_json := update.get("message"):
             message = Message.from_json(message_json)
             if command := message.command:
@@ -42,9 +46,13 @@ class Bot:
                     handler = handler_cls(self.bot_api, self.telegram_client)
                     await handler.handle(message)
                 else:
-                    logger.warning("No handler found for command {command.command}")
+                    await self.bot_api.post_message(
+                        message.chat.id, "Unrecognized command. Say what?",
+                    )
+                    logger.warning(f"No handler found for command {command.command}")
             else:
                 logger.info("No command found, skip processing")
         else:
             logger.info("Unrecognized update type")
+        logger.info("Finished processing update %s", update_id)
 

@@ -12,7 +12,7 @@ logging.basicConfig(
 )
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
-
+logging.getLogger("telethon").setLevel(logging.INFO)
 telegram_client = TelegramClient(SESSION_PATH, API_ID, API_HASH) 
 
 

@@ -54,6 +54,7 @@ class StatsService:
         self.telegram_client = telegram_client
 
     async def get_report(self):
+        logger.debug("Start building report")
         report = ""
         weekly_stats = []
         async for message in self._get_messages():
@@ -76,10 +77,14 @@ class StatsService:
             report += f"<b>involvement</b> = "
             report += f"<code>{format_involvement(involvement)}</code>\n\n"
 
+        logger.debug("Finished building report")
         return report
 
     async def _get_messages(self):
         from_date = self._get_from_date()
+        logger.debug(
+            "Retrieving message history for chat %s from %s", CHAT_ID, from_date,
+        )
 
         async for message in self.telegram_client.iter_messages(
             CHAT_ID, reverse=True, offset_date=from_date

@@ -34,9 +34,10 @@ class Handler(metaclass=HandlerRegistry):
         self.message = None
 
     async def handle(self, message):
-        logger.info(f"Handling /{self.command} command")
+        logger.info(f"Start handling command /{self.command}")
         self.message = message
         await self._process_message()
+        logger.info(f"Finished handling command /{self.command}")
 
     @abstractmethod
     async def _process_message(self):
