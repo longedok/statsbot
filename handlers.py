@@ -1,7 +1,8 @@
 import logging
+from functools import cached_property
 from abc import abstractmethod
 
-from service import StatsService
+from service.stats_reporter import StatsReporter
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +29,13 @@ class Handler(metaclass=HandlerRegistry):
     command = None
     description = None
 
-    def __init__(self, bot_api, telegram_client):
-        self.bot_api = bot_api
-        self.telegram_client = telegram_client
+    def __init__(self, bot):
+        self.bot = bot
         self.message = None
+
+    @cached_property
+    def bot_api(self):
+        return self.bot.bot_api
 
     async def handle(self, message):
         logger.info(f"Start handling command /{self.command}")
@@ -54,10 +58,12 @@ class StatsHandler(Handler):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.stats_service = StatsService(self.telegram_client)
+        self.stats_reporter = StatsReporter(
+            self.bot.telegram_client, self.bot.channel_id
+        )
 
     async def _process_message(self):
-        report = await self.stats_service.get_report()
+        report = await self.stats_reporter.get_report()
         await self.bot_api.post_message(self.message.chat.id, report)
 
 

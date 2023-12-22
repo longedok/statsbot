@@ -23,6 +23,7 @@ COPY . /app
 
 FROM base as final
 
+RUN apk --no-cache add curl
 COPY --from=builder /venv /venv
 COPY . /app
 

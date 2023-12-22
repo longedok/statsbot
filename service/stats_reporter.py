@@ -1,9 +1,9 @@
 import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from dataclasses import dataclass
 
-from settings import CHAT_ID, DEFAULT_TZ
+from models import MessageStats
+from settings import DEFAULT_TZ
 
 logger = logging.getLogger(__name__)
 
@@ -37,29 +37,20 @@ def format_involvement(involvement):
     return f"{involvement}%" if involvement is not None else 'n/a'
 
 
-@dataclass
-class MessageStats:
-    views: int
-    reactions: int
-    forwards: int
-    replies: int
-
-    @property
-    def total_reactions(self):
-        return self.reactions + self.forwards + self.replies
-
-
-class StatsService:
-    def __init__(self, telegram_client):
+class StatsReporter:
+    def __init__(self, telegram_client, channel_id):
         self.telegram_client = telegram_client
+        self.channel_id = channel_id
+
+    async def get_stats(self):
+        async for message in self._get_messages():
+            yield self._get_message_stats(message)
 
     async def get_report(self):
         logger.debug("Start building report")
         report = ""
-        weekly_stats = []
         async for message in self._get_messages():
             stats = self._get_message_stats(message)
-            weekly_stats.append(stats)
 
             if stats.views > 0:
                 involvement = round((stats.total_reactions / stats.views) * 100, 2)
@@ -83,14 +74,14 @@ class StatsService:
     async def _get_messages(self):
         from_date = self._get_from_date()
         logger.debug(
-            "Retrieving message history for chat %s from %s", CHAT_ID, from_date,
+            "Retrieving message history for chat {self.channel_id} from {from_date}",
         )
 
         async for message in self.telegram_client.iter_messages(
-            CHAT_ID, reverse=True, offset_date=from_date
+            self.channel_id, reverse=True, offset_date=from_date
         ):
             yield message
- 
+
     @staticmethod
     def _get_from_date():
         return (get_local_time() - timedelta(weeks=1)).replace(
@@ -111,5 +102,7 @@ class StatsService:
         else:
             num_replies = 0
 
-        return MessageStats(num_views, num_reactions, num_forwards, num_replies)
+        return MessageStats(
+            message.id, num_views, num_reactions, num_forwards, num_replies,
+        )
 

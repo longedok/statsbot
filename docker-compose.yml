@@ -8,12 +8,23 @@ services:
       - .env
     stop_signal: SIGINT
     restart: on-failure
-    entrypoint: /venv/bin/python main.py
+    entrypoint: ./startup.sh
     volumes:
       - data:/data
+      - ./stats-bot.session:/data/stats-bot.session
+      - ./startup.sh:/app/startup.sh
+    depends_on:
+      - questdb
+  questdb:
+    image: questdb/questdb
+    volumes:
+      - questdb:/var/lib/questdb
       - type: bind
-        source: stats-bot.session
-        target: /data/stats-bot.session
+        source: server.conf
+        target: /var/lib/questdb/conf/server.conf
+    ports:
+      - "8812:8812" # postresql wire protocol
 volumes:
   data:
+  questdb:
 

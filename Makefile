@@ -1,4 +1,5 @@
 run:
+	docker compose up -d questdb
 	poetry run python3 main.py
 
 build:
@@ -26,4 +27,7 @@ ssh:
 
 logs:
 	docker compose logs bot -f
+
+updb:
+	docker compose up -d questdb
 

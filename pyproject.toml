@@ -9,6 +9,8 @@ readme = "README.md"
 python = "^3.11"
 Telethon = "^1.32"
 httpx = "^0.25"
+psycopg = {extras = ["binary"], version = "^3.1"}
+questdb = "^1.2"
 
 
 [build-system]

@@ -6,6 +6,10 @@ from telethon.sync import TelegramClient
 
 from bot import Bot
 from settings import API_ID, API_HASH, SESSION_PATH
+from service.stats_saver import QuestDbSaver
+from service.stats_reporter import StatsReporter
+from service.stats_collector import StatsCollector
+
 
 logging.basicConfig(
     format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s', level=logging.INFO,
@@ -13,24 +17,35 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("telethon").setLevel(logging.INFO)
 
-telegram_client = TelegramClient(SESSION_PATH, API_ID, API_HASH) 
+logger = logging.getLogger(__name__)
 
 
-async def main():
-    bot = Bot(telegram_client)
+def main():
+    logger.info("Starting statsbot")
 
-    await find_dialog(telegram_client, "бесстыжая")
-    await asyncio.gather(bot.start())
+    telegram_client = TelegramClient(SESSION_PATH, API_ID, API_HASH)
 
+    stats_saver = QuestDbSaver()
+    stats_saver.start()
 
-async def find_dialog(telegram_client, title, limit=10):
-    dialogs = await telegram_client.get_dialogs(limit=limit)
-    for dialog in dialogs:
-        if title in dialog.name.lower():
-            return dialog
+    bot = Bot(telegram_client, stats_saver)
 
+    async def run():
+        await bot.find_dialog()
+        stats_reporter = StatsReporter(telegram_client, bot.channel_id)
+        stats_collector = StatsCollector(stats_saver, stats_reporter)
+
+        await asyncio.gather(bot.start(), stats_collector.start())
+
+    with telegram_client:
+        try:
+            telegram_client.loop.run_until_complete(run())
+        except KeyboardInterrupt:
+            stats_saver.stop()
+            stats_saver.join()
+
+    logger.info("Shutting statsbot down")
 
 if __name__ == "__main__":
-    with telegram_client:
-        telegram_client.loop.run_until_complete(main())
+    main()
 
