@@ -14,6 +14,7 @@ from service.stats_service import stats_service
 from dao import chat_dao, user_dao
 from dto import ChatDto, UserDto
 from telegram_client import telegram_client
+from utils import batch
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,6 @@ class Handler(metaclass=HandlerRegistry):
     def as_dict(cls):
         return {"command": cls.key, "description": cls.description}
 
-STATS_PER_MESSAGE = 15
 MAX_MESSAGE_LENGTH = 4096
 
 
@@ -81,7 +81,7 @@ def _limit_max_len(message):
     return message
 
 
-def build_chats_keyboard(chats):
+def _build_chats_keyboard(chats):
     keyboard, buttons = [], []
     for i, chat in enumerate(chats):
         buttons.append({
@@ -114,7 +114,7 @@ You have no channels. Please forward a message from a channel to see its stats.
             await self.bot_api.post_message(self.chat.id, self.no_chats_reply)
             return
 
-        keyboard = build_chats_keyboard(chats)
+        keyboard = _build_chats_keyboard(chats)
 
         await self.bot_api.post_message(
             self.chat.id,
@@ -124,6 +124,7 @@ You have no channels. Please forward a message from a channel to see its stats.
 
 
 class StatsCallbackHandler(Handler):
+    STATS_PER_MESSAGE = 15
     key = "stats_callback"
 
     @cached_property
@@ -135,16 +136,15 @@ class StatsCallbackHandler(Handler):
             logger.warning("No `channel_id` in callback data, aborting handler")
             return
 
-        report = await stats_service.get_report(
-            channel_id, limit_messages=STATS_PER_MESSAGE,
+        message_stats = await stats_service.get_report(channel_id)
+        anwser_task = asyncio.create_task(
+            self.bot_api.answer_callback(self.callback.id)
         )
 
-        message = self.callback.message
-
-        await asyncio.gather(
-            self.bot_api.answer_callback(self.message.id),
-            self.bot_api.edit_message_text(message.chat.id, message.message_id, report)
-        )
+        for stats_group in batch(message_stats, n=self.STATS_PER_MESSAGE):
+            report = "".join(stats_group)
+            message = self.callback.message
+            await self.bot_api.post_message(message.chat.id, report)
 
 
 class StartHandler(Handler):

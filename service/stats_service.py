@@ -63,7 +63,7 @@ def _make_stats_dto(message):
 
 
 class StatsService:
-    async def get_report(self, channel_id, limit_messages=0):
+    async def get_report(self, channel_id):
         logger.debug("Start building report")
         lines = []
         async for message, stats in self.get_message_stats(channel_id):
@@ -84,11 +84,8 @@ class StatsService:
             line += f"<code>{_format_involvement(involvement)}</code>\n\n"
             lines.append(line)
 
-        if limit_messages:
-            lines = lines[-limit_messages:]
-
         logger.debug("Finished building report")
-        return "".join(lines)
+        return lines
 
     async def get_message_stats(self, channel_id):
         async for message in telegram_client.iter_messages(

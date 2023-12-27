@@ -2,6 +2,11 @@ import sys
 import os
 
 
+def panic(message):
+    print(message, file=sys.stderr)
+    exit(1)
+
+
 def get_env_int(env_name, default=None):
     try:
         return int(os.environ[env_name])
@@ -20,4 +25,9 @@ def get_env(env_name, default=None):
             return default
         panic(f"Error: {env_name} env variable is not set.")
 
+
+def batch(iterable, n=1):
+    l = len(iterable)
+    for ndx in range(0, l, n):
+        yield iterable[ndx:min(ndx + n, l)]
 
