@@ -1,10 +1,11 @@
-import logging
 import asyncio
+import logging
 
+from bot_api.client import BotApiClient
+from bot_api.models import Message, Callback
 from handlers import HandlerRegistry
 from settings import CHAT_TITLE
-from .models import Message
-from .client import BotApiClient
+from telegram_client import telegram_client
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +14,8 @@ NOT_FOUND = object()
 
 
 class Bot:
-    def __init__(self, telegram_client, stats_saver):
+    def __init__(self):
         self.bot_api = BotApiClient()
-        self.telegram_client = telegram_client
-        self.stats_saver = stats_saver
         self._channel_id = None
 
     @property
@@ -37,7 +36,7 @@ class Bot:
 
     async def find_dialog(self, title=CHAT_TITLE, limit=10):
         logger.info(f"Searching for dialog \"{title}\"")
-        dialogs = await self.telegram_client.get_dialogs(limit=limit)
+        dialogs = await telegram_client.get_dialogs(limit=limit)
         for dialog in dialogs:
             if title in dialog.name.lower():
                 self._channel_id = dialog.entity.id
@@ -63,27 +62,43 @@ class Bot:
     async def _process_updates(self):
         logger.info("Enter updates-processing loop")
         while True:
-            for update in await self.bot_api.get_updates():
-                await self._process_update(update)
+            for update_json in await self.bot_api.get_updates():
+                await self._process_update(update_json)
         logger.info("Updates-processing loop shut down")
 
-    async def _process_update(self, update):
-        update_id = update.get("update_id")
-        logger.info("Start processing update %s: %s", update_id, update)
-        if message_json := update.get("message"):
+    async def _process_update(self, update_json):
+        update_id = update_json.get("update_id")
+        logger.info("Start processing update id=%s: %s", update_id, update_json)
+
+        command, key = None, None
+        update_obj = None
+        if message_json := update_json.get("message"):
             message = Message.from_json(message_json)
             if command := message.command:
-                if handler_cls := HandlerRegistry.get_handler(command.command):
-                    handler = handler_cls(self)
-                    await handler.handle(message)
-                else:
-                    await self.bot_api.post_message(
-                        message.chat.id, "Unrecognized command. Say what?",
-                    )
-                    logger.warning(f"No handler found for command {command.command}")
-            else:
-                logger.info("No command found, skip processing")
-        else:
+                key = command.command
+            elif message.forward_from_chat:
+                key = "forward"
+            update_obj = message
+        elif callback_json := update_json.get("callback_query"):
+            callback = Callback.from_json(callback_json)
+            if action := callback.data.get("action"):
+                key = f"{action}_callback"
+            update_obj = callback
+
+        if key is None:
             logger.info("Unrecognized update type")
-        logger.info("Finished processing update %s", update_id)
+            return
+
+        if handler_cls := HandlerRegistry.get_handler(key):
+            handler = handler_cls(self)
+            await handler.handle(update_obj)
+        else:
+            if command:
+                await self.bot_api.post_message(
+                    message.chat.id,
+                    f"Unrecognized command /{command.command}. Say what?",
+                )
+            logger.warning(f"No handler found for key {key}")
+
+        logger.info("Finished processing update id=%s", update_id)
 

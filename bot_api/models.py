@@ -1,7 +1,23 @@
-import json
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Any, Self
+import json
+
+
+@dataclass
+class ForwardFromChat:
+    chat_id: int
+    title: str | None = field(repr=False)
+    username: str | None
+    type: str = field(repr=False)
+
+    @classmethod
+    def from_json(cls, forwrad_from_chat_json: dict) -> Self:
+        chat_id = forwrad_from_chat_json["id"]
+        title = forwrad_from_chat_json.get("title")
+        username = forwrad_from_chat_json.get("username")
+        chat_type = forwrad_from_chat_json["type"]
+        return cls(chat_id, title, username, chat_type)
 
 
 @dataclass
@@ -43,12 +59,26 @@ class Command:
 
 
 @dataclass
+class Peer:
+    id: int
+    username: str | None
+
+    @classmethod
+    def from_json(cls, peer_json: dict) -> Self:
+        id_ = peer_json["id"]
+        username = peer_json.get("username")
+        return Peer(id_, username)
+
+
+@dataclass
 class Message:
     text: str | None = field(repr=False)
     message_id: int
     chat: Chat
+    from_: Peer
     date: int
     entities: list[Entity]
+    forward_from_chat: ForwardFromChat | None
 
     @classmethod
     def from_json(cls, message_json: dict) -> Self:
@@ -63,7 +93,17 @@ class Message:
         else:
             entities = []
 
-        return cls(text, message_id, chat, date, entities)
+        if forward_json := message_json.get("forward_from_chat"):
+            forward_from_chat = ForwardFromChat.from_json(forward_json)
+        else:
+            forward_from_chat = None
+
+        if from_ := message_json.get("from"):
+            from_ = Peer.from_json(from_)
+        else:
+            from_ = None
+
+        return cls(text, message_id, chat, from_, date, entities, forward_from_chat)
 
     @cached_property
     def command(self) -> Command | None:
@@ -102,4 +142,25 @@ class Message:
             tags.append(tag)
 
         return tags
+
+
+@dataclass
+class Callback:
+    id: int
+    message: Message
+    data: dict
+
+    @classmethod
+    def from_json(cls, callback_json: dict) -> Self:
+        id_ = callback_json.get("id")
+
+        if data := callback_json.get("data"):
+            data = json.loads(data)
+
+        if message_json := callback_json.get("message"):
+            message = Message.from_json(message_json)
+        else:
+            message = None
+
+        return Callback(id_, message, data)
 

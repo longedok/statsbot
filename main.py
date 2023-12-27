@@ -2,19 +2,17 @@
 import asyncio
 import logging
 
-from telethon.sync import TelegramClient
-
 from bot import Bot
-from settings import API_ID, API_HASH, SESSION_PATH
-from service.stats_saver import QuestDbSaver
-from service.stats_reporter import StatsReporter
+from db import Database, QuestDbIngester, create_schema, db
+from telegram_client import telegram_client
 from service.stats_collector import StatsCollector
-
+from service.stats_service import stats_service
 
 logging.basicConfig(
     format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s', level=logging.INFO,
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("telethon").setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
@@ -23,17 +21,15 @@ logger = logging.getLogger(__name__)
 def main():
     logger.info("Starting statsbot")
 
-    telegram_client = TelegramClient(SESSION_PATH, API_ID, API_HASH)
+    questdb_ingester = QuestDbIngester()
+    questdb_ingester.start()
 
-    stats_saver = QuestDbSaver()
-    stats_saver.start()
-
-    bot = Bot(telegram_client, stats_saver)
+    bot = Bot()
 
     async def run():
-        await bot.find_dialog()
-        stats_reporter = StatsReporter(telegram_client, bot.channel_id)
-        stats_collector = StatsCollector(stats_saver, stats_reporter)
+        await asyncio.gather(bot.find_dialog(), db.connect())
+        await create_schema()
+        stats_collector = StatsCollector(questdb_ingester, bot.channel_id)
 
         await asyncio.gather(bot.start(), stats_collector.start())
 
@@ -41,10 +37,12 @@ def main():
         try:
             telegram_client.loop.run_until_complete(run())
         except KeyboardInterrupt:
-            stats_saver.stop()
-            stats_saver.join()
+            logger.info("Shutting down statsbot")
+        finally:
+            questdb_ingester.stop()
+            telegram_client.loop.run_until_complete(db.disconnect())
 
-    logger.info("Shutting statsbot down")
+    logger.info("Statsbot shut down")
 
 if __name__ == "__main__":
     main()

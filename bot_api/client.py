@@ -1,6 +1,10 @@
+import logging
+
 import httpx
 
 from settings import BOT_TOKEN
+
+logger = logging.getLogger(__name__)
 
 
 class BotApiClient:
@@ -36,19 +40,42 @@ class BotApiClient:
         return []
 
     async def _post(self, method, **params):
-        return await self.http_client.post(
-            f"{self.BASE_URL}/{method}", headers=self.headers, **params,
+        url = f"{self.BASE_URL}/{method}"
+        resp = await self.http_client.post(url, headers=self.headers, **params)
+        logging.debug(
+            "POST result: url=%s status=%s body=%s", url, resp.status_code, resp.text
         )
+        return resp
 
     async def set_my_commands(self, commands):
         return await self._post("setMyCommands", json={"commands": commands})
 
-    async def post_message(self, chat_id, text, parse_mode="HTML"):
+    async def post_message(self, chat_id, text, parse_mode="HTML", reply_markup=None):
         body = {
             "chat_id": chat_id,
+            "text": text,
+        }
+        if parse_mode:
+            body["parse_mode"] = parse_mode
+        if reply_markup:
+            body["reply_markup"] = reply_markup
+
+        return await self._post("sendMessage", json=body)
+
+    async def answer_callback(self, callback_query_id):
+        body = {
+            "callback_query_id": callback_query_id,
+        }
+
+        return await self._post("answerCallbackQuery", json=body)
+
+    async def edit_message_text(self, chat_id, message_id, text, parse_mode="HTML"):
+        body = {
+            "chat_id": chat_id,
+            "message_id": message_id,
             "text": text,
             "parse_mode": parse_mode,
         }
 
-        return await self._post("sendMessage", json=body)
+        return await self._post("editMessageText", json=body)
 

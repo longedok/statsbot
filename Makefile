@@ -1,6 +1,10 @@
 run:
 	docker compose up -d questdb
+	sleep 0.5
 	poetry run python3 main.py
+
+stop:
+	docker compose stop
 
 build:
 	docker buildx build --platform linux/amd64 -t longedok/statsbot .
@@ -27,6 +31,10 @@ ssh:
 
 logs:
 	docker compose logs bot -f
+
+glogs:
+	gcloud logging read --limit 10 --order asc \
+		'logName="projects/telegram-bot-303420/logs/gcplogs-docker-driver"'
 
 updb:
 	docker compose up -d questdb
