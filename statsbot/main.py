@@ -6,7 +6,6 @@ from bot import Bot
 from db import Database, QuestDbIngester, create_schema, db
 from telegram_client import telegram_client
 from service.stats_collector import StatsCollector
-from service.stats_service import stats_service
 
 logging.basicConfig(
     format='[%(levelname) 5s/%(asctime)s] %(name)s: %(message)s', level=logging.INFO,

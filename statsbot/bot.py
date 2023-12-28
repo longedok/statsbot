@@ -70,32 +70,28 @@ class Bot:
         update_id = update_json.get("update_id")
         logger.info("Start processing update id=%s: %s", update_id, update_json)
 
-        command, key = None, None
-        update_obj = None
+        key = None
         if message_json := update_json.get("message"):
-            message = Message.from_json(message_json)
-            if command := message.command:
+            update = Message.from_json(message_json)
+            if command := update.command:
                 key = command.command
-            elif message.forward_from_chat:
+            elif update.forward_from_chat:
                 key = "forward"
-            update_obj = message
         elif callback_json := update_json.get("callback_query"):
-            callback = Callback.from_json(callback_json)
-            if action := callback.data.get("action"):
-                key = f"{action}_callback"
-            update_obj = callback
+            update = Callback.from_json(callback_json)
+            key = update.data.get("action")
 
         if key is None:
-            logger.info("Unrecognized update type")
+            logger.warning("Unrecognized update type, skipping processing")
             return
 
         if handler_cls := HandlerRegistry.get_handler(key):
             handler = handler_cls(self)
-            await handler.handle(update_obj)
+            await handler.handle(update)
         else:
-            if command:
+            if command := getattr(update, "command", None):
                 await self.bot_api.post_message(
-                    message.chat.id,
+                    update.chat.id,
                     f"Unrecognized command /{command.command}. Say what?",
                 )
             logger.warning(f"No handler found for key {key}")
