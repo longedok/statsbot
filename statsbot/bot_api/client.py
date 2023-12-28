@@ -9,11 +9,12 @@ logger = logging.getLogger(__name__)
 
 class BotApiClient:
     LONG_POLLING_TIMEOUT = 60
+    DEFAULT_TIMEOUT = 15
     BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
     def __init__(self):
         self.last_update_id = None
-        self.http_client = httpx.AsyncClient()
+        self.http_client = httpx.AsyncClient(timeout=self.DEFAULT_TIMEOUT)
         self.headers = {"Content-Type": "application/json"}
 
     @property

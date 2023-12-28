@@ -8,5 +8,5 @@ done
 
 echo "QuestDB is up!"
 
-exec /venv/bin/python main.py
+exec /venv/bin/python statsbot/main.py
 

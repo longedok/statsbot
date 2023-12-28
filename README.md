@@ -1,4 +1,4 @@
 # Statsbot
 
-This bot collects involvement statistics for telegram channels.
+Telegram bot for collecting involvement statistics in telegram channels.
 

@@ -1,7 +1,7 @@
 run:
 	docker compose up -d questdb
 	sleep 0.5
-	poetry run python3 main.py
+	poetry run python3 statsbot/main.py
 
 stop:
 	docker compose stop

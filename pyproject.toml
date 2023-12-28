@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "py"
+name = "statsbot"
 version = "0.1.0"
-description = ""
-authors = ["Evgeny Kartavykh <evgeny@getquin.com>"]
+description = "Telegram bot for collecting involvement statistics in telegram channels"
+authors = ["Evgeny Kartavykh <longedok@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]

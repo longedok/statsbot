@@ -19,9 +19,7 @@ services:
     image: questdb/questdb
     volumes:
       - questdb:/var/lib/questdb
-      - type: bind
-        source: server.conf
-        target: /var/lib/questdb/conf/server.conf
+      - ./server.conf:/var/lib/questdb/conf/server.conf
     ports:
       - "8812:8812" # postresql wire protocol
 volumes:
