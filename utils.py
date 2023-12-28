@@ -2,11 +2,6 @@ import sys
 import os
 
 
-def panic(message):
-    print(message, file=sys.stderr)
-    exit(1)
-
-
 def get_env_int(env_name, default=None):
     try:
         return int(os.environ[env_name])

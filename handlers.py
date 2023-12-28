@@ -6,6 +6,7 @@ from enum import Enum
 from functools import cached_property
 
 from telethon.tl.types import PeerChannel
+from telethon.tl.functions.channels import JoinChannelRequest
 from telethon.errors.rpcerrorlist import ChannelPrivateError
 from telethon import functions, types
 
@@ -188,13 +189,17 @@ Please send me an invitation link to the channel so I can join it first.
 
             # getting the entity to ensure the chat isn't private
             try:
-                await telegram_client.get_entity(PeerChannel(channel_id))
+                chat_entity = await telegram_client.get_entity(PeerChannel(channel_id))
             except ChannelPrivateError:
                 message = self.private_response.format(
                     chat_title=self.forward_from_chat.title
                 )
                 await self.bot_api.post_message(self.chat.id, message)
                 return
+            else:
+                pass
+                # TODO: commented out for now to avoid adding arbitrary chats
+                # await telegram_client(JoinChannelRequest(chat_entity))
 
             chat_dto = ChatDto(channel_id, self.forward_from_chat.title)
             await chat_dao.create_chat(chat_dto)

@@ -1,8 +1,10 @@
+from psycopg.rows import dict_row
+
 import logging
 from psycopg import AsyncConnection
 from contextlib import asynccontextmanager
 
-from settings import QDB_HOST, QDB_POSTGRES_PORT
+from settings import QDB_HOST, QDB_POSTGRES_PORT, QDB_USER, QDB_PASSWORD
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +24,10 @@ class Database:
         logger.info("Connecting to the database")
 
         self._conn = await AsyncConnection.connect(
-            f"postgres://admin@{QDB_HOST}:{QDB_POSTGRES_PORT}/qdb",
-            password="quest",
+            f"postgres://{QDB_USER}@{QDB_HOST}:{QDB_POSTGRES_PORT}/qdb",
+            password=QDB_PASSWORD,
             autocommit=True,
+            row_factory=dict_row,
         )
 
         logger.info("Database connection established")
@@ -39,6 +42,7 @@ class Database:
     @asynccontextmanager
     async def _execute(self, query, params=None):
         async with self.conn.cursor() as cur:
+            logging.debug("Executing query %s with params %s", query, params)
             await cur.execute(query, params)
             yield cur
 

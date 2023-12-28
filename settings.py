@@ -8,5 +8,7 @@ SESSION_PATH = get_env("SESSION_PATH", default="stats-bot")
 QDB_HOST = get_env("QDB_HOST", default="questdb")
 QDB_INFLUX_PORT = get_env_int("QDB_INFLUX_PORT", default=9009)
 QDB_POSTGRES_PORT = get_env_int("QDB_INFLUX_PORT", default=8812)
+QDB_USER = get_env("QDB_USER", "admin")
+QDB_PASSWORD = get_env("QDB_PASSWORD", "quest")
 CHAT_TITLE = get_env("CHAT_TITLE", default="бесстыжая")
 

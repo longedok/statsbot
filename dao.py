@@ -40,8 +40,8 @@ class MessageDao(BaseDao):
             "messages",
             ("message_id", "chat_id", "text", "posted_at"),
             (
-                message_dto.message_id,
-                message_dto.chat_id,
+                str(message_dto.message_id),
+                str(message_dto.chat_id),
                 message_dto.text,
                 to_timestamp(message_dto.date)
             ),
@@ -57,8 +57,8 @@ class ChatDao(BaseDao):
         SELECT chat_id, title, created_at FROM chats WHERE chat_id = %s;
         """
 
-        if record := await self.db.fetch_one(sql, (chat_id,)):
-            return self._make_chat_dto(record)
+        if row := await self.db.fetch_one(sql, (str(chat_id),)):
+            return self._make_chat_dto(row)
 
         return None
 
@@ -68,22 +68,22 @@ class ChatDao(BaseDao):
         """
 
         chats = []
-        for record in await self.db.fetch_all(sql):
-            chat_dto = self._make_chat_dto(record)
+        for row in await self.db.fetch_all(sql):
+            chat_dto = self._make_chat_dto(row)
             chats.append(chat_dto)
 
         return chats
 
     @staticmethod
-    def _make_chat_dto(record):
-        return ChatDto(record[0], record[1], record[2])
+    def _make_chat_dto(row):
+        return ChatDto(int(row["chat_id"]), row["title"], row["created_at"])
 
     async def create_chat(self, chat_dto):
         return await self._insert(
             "chats",
             ("chat_id", "title", "created_at"),
             (
-                chat_dto.chat_id,
+                str(chat_dto.chat_id),
                 chat_dto.title,
                 to_timestamp(chat_dto.created_at),
             ),
@@ -98,8 +98,8 @@ class UserDao(BaseDao):
         SELECT user_id, username, created_at FROM users WHERE user_id = %s;
         """
 
-        if record := await self.db.fetch_one(sql, (user_id,)):
-            return UserDto(record[0], record[1], record[2])
+        if row := await self.db.fetch_one(sql, (str(user_id),)):
+            return UserDto(int(row["user_id"]), row["username"], row["created_at"])
 
         return None
 
@@ -108,7 +108,7 @@ class UserDao(BaseDao):
             "users",
             ("user_id", "username", "created_at"),
             (
-                user_dto.user_id,
+                str(user_dto.user_id),
                 user_dto.username,
                 to_timestamp(user_dto.created_at),
             ),

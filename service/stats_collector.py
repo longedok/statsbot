@@ -28,9 +28,11 @@ class StatsCollector:
         ):
             self.questdb_ingester.save(
                 "stats",
+                symbols={
+                    "message_id": str(message.id),
+                    "chat_id": str(message.peer_id.channel_id),
+                },
                 columns={
-                    "message_id": message.id,
-                    "chat_id": message.peer_id.channel_id,
                     "views": stats_dto.views,
                     "reactions": stats_dto.reactions,
                     "forwards": stats_dto.forwards,
