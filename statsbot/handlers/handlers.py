@@ -152,7 +152,7 @@ class SelectChannelHandler(CallbackHandler):
             return
 
         message_stats = await stats_service.get_report(channel_id)
-        anwser_task = asyncio.create_task(
+        answer_task = asyncio.create_task(
             self.bot_api.answer_callback(self.callback.id)
         )
 
@@ -163,9 +163,12 @@ class SelectChannelHandler(CallbackHandler):
                 message.chat.id,
                 self.response_no_message.format(channel_title=chat_dto.title),
             )
+            await asyncio.gather(answer_task)
             return
 
         for stats_group in batch(message_stats, n=self.STATS_PER_MESSAGE):
             report = "".join(stats_group)
             await self.bot_api.post_message(message.chat.id, report)
+
+        await asyncio.gather(answer_task)
 
