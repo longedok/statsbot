@@ -1,18 +1,13 @@
 import asyncio
-import json
 import logging
 import time
 from functools import cached_property
 
-from telethon.tl.types import PeerChannel
-from telethon.tl.functions.channels import JoinChannelRequest
-from telethon.tl.functions.contacts import SearchRequest
-from telethon.errors.rpcerrorlist import ChannelPrivateError
-
 from dao import chat_dao, user_dao
-from dto import ChatDto, UserDto
+from dto import UserDto
+from service.chat_service import chat_service
+from service.exceptions import ChannelPrivateError
 from service.stats_service import stats_service
-from telegram_client import telegram_client
 from utils import batch
 
 from .registry import HandlerRegistry
@@ -24,39 +19,39 @@ logger = logging.getLogger("handlers")
 
 class StartHandler(MessageHandler):
     key = "start"
-
-    greeting = (
-        "Hi there, this bot calculates involvement statistics for telegram "
-        "channels.\n"
-        "Just forward me a message from a channel you want to see the stats for. "
-        "Use the command /channels to see the list of your channels."
-    )
+    replies = {
+        "greeting": (
+            "Hi there, this bot calculates involvement statistics for telegram "
+            "channels.\n"
+            "Just forward me a message from a channel you want to see the stats for. "
+            "Use the command /channels to see the list of your channels."
+        )
+    }
 
     async def _process_update(self):
         peer = self.message.from_
         if not await user_dao.get_user(peer.id):
             await user_dao.create_user(UserDto(peer.id, peer.username))
 
-        await self.bot_api.post_message(self.chat.id, self.greeting)
+        await self.reply("greeting")
 
 
 class ForwardsHandler(MessageHandler):
     key = "forward"
-
-    response_success = (
-        "Channel \"{chat_title}\" added. Use the command /channels to get the channel's"
-        " stats."
-    )
-    response_exists = (
-        "Channel \"{chat_title}\" already exists in the list of your channels. Use the"
-        " command /channels to get the channel's stats."
-    )
-    response_private = (
-        "Channel \"{chat_title}\" is a private channel.\n\n"
-        "Please send me an invitation link to the channel so I can join it first."
-    )
-
-    SEARCH_RESULTS_LIMIT = 20
+    replies = {
+        "success": (
+            "Channel \"{channel_title}\" added. Use the command /channels to get the "
+            "channel's stats."
+        ),
+        "already_exists": (
+            "Channel \"{channel_title}\" already exists in the list of your channels. "
+            "Use the command /channels to get the channel's stats."
+        ),
+        "channel_private": (
+            "Channel \"{channel_title}\" is a private channel.\n\n"
+            "Please send me an invitation link to the channel so I can join it first."
+        )
+    }
 
     @cached_property
     def forward_from_chat(self):
@@ -64,59 +59,36 @@ class ForwardsHandler(MessageHandler):
 
     async def _process_update(self):
         channel_id = self.forward_from_chat.chat_id
-
-        if chat_dto := await chat_dao.get_chat(channel_id):
-            await self.bot_api.post_message(
-                self.chat.id,
-                self.response_exists.format(chat_title=chat_dto.title)
-            )
-            return
-
-        chat_title = self.forward_from_chat.title
-        # search for channel to populate the entity cache
-        await self._search(chat_title)
+        channel_title = self.forward_from_chat.title
 
         try:
-            # getting the entity to ensure the chat isn't private
-            channel_entity = await self._get_channel_entity(channel_id)
-        except ChannelPrivateError:
-            await self.bot_api.post_message(
-                self.chat.id, self.response_private.format(chat_title=chat_title)
+            channel, created = await chat_service.get_or_create_channel(
+                channel_id, channel_title
             )
+        except ChannelPrivateError:
+            await self.reply("channel_private", channel_title=channel_title)
             return
-        else:
-            pass
-            # TODO: commented out for now to avoid adding arbitrary chats
-            # await telegram_client(JoinChannelRequest(channel_entity))
 
-        chat_dto = ChatDto(channel_id, chat_title)
-        await chat_dao.create_chat(chat_dto)
+        if not created:
+            await self.reply("already_exists", channel_title=channel.title)
+            return
 
-        await self.bot_api.post_message(
-            self.chat.id, self.response_success.format(chat_title=chat_dto.title)
-        )
-
-    async def _search(self, query):
-        request = SearchRequest(q=query, limit=self.SEARCH_RESULTS_LIMIT)
-        return await telegram_client(request)
-
-    async def _get_channel_entity(self, channel_id):
-        return await telegram_client.get_entity(PeerChannel(channel_id))
-
+        await self.reply("success", channel_title=channel.title)
 
 
 class ChannelsHandler(MessageHandler):
     key = "channels"
     description = "Show the list of channels"
-
-    response_no_channels = (
-        "You have no channels. Please forward a message from a channel to see its "
-        "stats."
-    )
+    replies = {
+        "no_channels": (
+            "You have no channels. Please forward a message from a channel to see its "
+            "stats."
+        )
+    }
 
     async def _process_update(self):
         if not (chats := await chat_dao.get_chats()):
-            await self.bot_api.post_message(self.chat.id, self.response_no_channels)
+            await self.reply("no_channels")
             return
 
         keyboard = self._build_chats_keyboard(chats)

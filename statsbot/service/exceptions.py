@@ -1,0 +1,3 @@
+class ChannelPrivateError(Exception):
+    pass
+

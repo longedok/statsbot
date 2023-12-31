@@ -85,7 +85,7 @@ chat_dao = ChatDao(db)
 
 class UserDao(BaseDao):
     async def get_user(self, user_id):
-        sql = "SELECT user_id, username, created_at FROM users WHERE user_id = '%s';"
+        sql = "SELECT user_id, username, created_at FROM users WHERE user_id = %s;"
 
         if row := await self.db.fetch_one(sql, (str(user_id),)):
             return UserDto(int(row["user_id"]), row["username"], row["created_at"])

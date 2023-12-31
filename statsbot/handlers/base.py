@@ -35,6 +35,8 @@ class Handler(metaclass=HandlerRegistry):
 
 
 class MessageHandler(Handler):
+    replies = {}
+
     @cached_property
     def message(self):
         return self.update
@@ -42,6 +44,15 @@ class MessageHandler(Handler):
     @cached_property
     def chat(self):
         return self.update.chat
+
+    async def reply(self, reply_key, **placeholders):
+        reply_text = self.replies.get(reply_key)
+        if not reply_text:
+            logger.warning(f"Reply with key \"{reply_key}\" not found.")
+            return
+        if placeholders:
+            reply_text = reply_text.format(**placeholders)
+        await self.bot_api.post_message(self.chat.id, reply_text)
 
 
 class CallbackHandler(Handler):
