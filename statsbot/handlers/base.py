@@ -34,16 +34,8 @@ class Handler(metaclass=HandlerRegistry):
         return {"command": cls.key, "description": cls.description}
 
 
-class MessageHandler(Handler):
+class RepliesMixin:
     replies = {}
-
-    @cached_property
-    def message(self):
-        return self.update
-
-    @cached_property
-    def chat(self):
-        return self.update.chat
 
     async def reply(self, reply_key, **placeholders):
         reply_text = self.replies.get(reply_key)
@@ -55,10 +47,24 @@ class MessageHandler(Handler):
         await self.bot_api.post_message(self.chat.id, reply_text)
 
 
-class CallbackHandler(Handler):
+class MessageHandler(RepliesMixin, Handler):
+    @cached_property
+    def message(self):
+        return self.update
+
+    @cached_property
+    def chat(self):
+        return self.update.chat
+
+
+class CallbackHandler(RepliesMixin, Handler):
     @cached_property
     def message(self):
         return self.update.message
+
+    @cached_property
+    def chat(self):
+        return self.message.chat
 
     @cached_property
     def callback(self):

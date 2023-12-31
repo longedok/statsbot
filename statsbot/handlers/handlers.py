@@ -146,11 +146,12 @@ class SelectChannelHandler(CallbackHandler):
 
 class GetStatsHandler(CallbackHandler):
     key = "get_stats"
-
-    response_no_message = (
-        "No messages found in the selected time period for channel "
-        "\"{channel_title}\"."
-    )
+    replies = {
+        "no_messages": (
+            "No messages found in the selected time period for channel "
+            "\"{channel_title}\"."
+        )
+    }
 
     STATS_PER_MESSAGE = 15
     POSTING_DELAY_SEC = 0.5
@@ -180,11 +181,10 @@ class GetStatsHandler(CallbackHandler):
 
         if not message_stats:
             chat_dto = await chat_dao.get_chat(channel_id)
-            await self.bot_api.post_message(
-                self.message.chat.id,
-                self.response_no_message.format(channel_title=chat_dto.title),
+            await asyncio.gather(
+                self.reply("no_messages", channel_title=chat_dto.title),
+                response_task,
             )
-            await response_task
             return
 
         await asyncio.gather(self.post_stats(message_stats), response_task)
