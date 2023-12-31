@@ -10,8 +10,8 @@ from service.exceptions import ChannelPrivateError
 from service.stats_service import stats_service
 from utils import batch
 
-from .registry import HandlerRegistry
 from .base import MessageHandler, CallbackHandler
+from .registry import HandlerRegistry
 from .utils import make_keyboard
 
 logger = logging.getLogger("handlers")
@@ -184,20 +184,21 @@ class GetStatsHandler(CallbackHandler):
                 self.message.chat.id,
                 self.response_no_message.format(channel_title=chat_dto.title),
             )
-            await asyncio.gather(response_task)
+            await response_task
             return
 
+        await asyncio.gather(self.post_stats(message_stats), response_task)
+
+    async def post_stats(self, message_stats):
         num_messages = (len(message_stats) // self.STATS_PER_MESSAGE) + 1
         groups = batch(message_stats, n=self.STATS_PER_MESSAGE)
         for i, stats_group in enumerate(groups):
-            report = "".join(stats_group)
+            message_text = "".join(stats_group)
             start = time.monotonic()
-            await self.bot_api.post_message(self.message.chat.id, report)
+            await self.bot_api.post_message(self.message.chat.id, message_text)
             elapsed = time.monotonic() - start
             if i < num_messages - 1:
                 sleep_time = self.POSTING_DELAY_SEC - elapsed
                 if sleep_time > 0:
                     await asyncio.sleep(sleep_time)
-
-        await asyncio.gather(response_task)
 
