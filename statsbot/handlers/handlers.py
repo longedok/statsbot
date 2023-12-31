@@ -191,12 +191,15 @@ class GetStatsHandler(CallbackHandler):
 
     async def post_stats(self, message_stats):
         num_messages = (len(message_stats) // self.STATS_PER_MESSAGE) + 1
-        groups = batch(message_stats, n=self.STATS_PER_MESSAGE)
-        for i, stats_group in enumerate(groups):
-            message_text = "".join(stats_group)
+        batches = batch(message_stats, n=self.STATS_PER_MESSAGE)
+
+        for i, stats_batch in enumerate(batches):
+            message_text = "".join(stats_batch)
+
             start = time.monotonic()
             await self.bot_api.post_message(self.message.chat.id, message_text)
             elapsed = time.monotonic() - start
+
             if i < num_messages - 1:
                 sleep_time = self.POSTING_DELAY_SEC - elapsed
                 if sleep_time > 0:
