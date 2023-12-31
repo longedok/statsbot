@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 from functools import cached_property
 
 from telethon.tl.types import PeerChannel
@@ -16,6 +17,7 @@ from utils import batch
 
 from .registry import HandlerRegistry
 from .base import MessageHandler, CallbackHandler
+from .utils import make_keyboard
 
 logger = logging.getLogger("handlers")
 
@@ -45,6 +47,10 @@ class ForwardsHandler(MessageHandler):
         "Channel \"{chat_title}\" added. Use the command /channels to get the channel's"
         " stats."
     )
+    response_exists = (
+        "Channel \"{chat_title}\" already exists in the list of your channels. Use the"
+        " command /channels to get the channel's stats."
+    )
     response_private = (
         "Channel \"{chat_title}\" is a private channel.\n\n"
         "Please send me an invitation link to the channel so I can join it first."
@@ -59,26 +65,32 @@ class ForwardsHandler(MessageHandler):
     async def _process_update(self):
         channel_id = self.forward_from_chat.chat_id
 
-        if not (chat_dto := await chat_dao.get_chat(channel_id)):
-            chat_title = self.forward_from_chat.title
-            # search for channel to populate the entity cache
-            await self._search(chat_title)
+        if chat_dto := await chat_dao.get_chat(channel_id):
+            await self.bot_api.post_message(
+                self.chat.id,
+                self.response_exists.format(chat_title=chat_dto.title)
+            )
+            return
 
-            try:
-                # getting the entity to ensure the chat isn't private
-                channel_entity = await self._get_channel_entity(channel_id)
-            except ChannelPrivateError:
-                await self.bot_api.post_message(
-                    self.chat.id, self.response_private.format(chat_title=chat_title)
-                )
-                return
-            else:
-                pass
-                # TODO: commented out for now to avoid adding arbitrary chats
-                # await telegram_client(JoinChannelRequest(channel_entity))
+        chat_title = self.forward_from_chat.title
+        # search for channel to populate the entity cache
+        await self._search(chat_title)
 
-            chat_dto = ChatDto(channel_id, chat_title)
-            await chat_dao.create_chat(chat_dto)
+        try:
+            # getting the entity to ensure the chat isn't private
+            channel_entity = await self._get_channel_entity(channel_id)
+        except ChannelPrivateError:
+            await self.bot_api.post_message(
+                self.chat.id, self.response_private.format(chat_title=chat_title)
+            )
+            return
+        else:
+            pass
+            # TODO: commented out for now to avoid adding arbitrary chats
+            # await telegram_client(JoinChannelRequest(channel_entity))
+
+        chat_dto = ChatDto(channel_id, chat_title)
+        await chat_dao.create_chat(chat_dto)
 
         await self.bot_api.post_message(
             self.chat.id, self.response_success.format(chat_title=chat_dto.title)
@@ -90,6 +102,7 @@ class ForwardsHandler(MessageHandler):
 
     async def _get_channel_entity(self, channel_id):
         return await telegram_client.get_entity(PeerChannel(channel_id))
+
 
 
 class ChannelsHandler(MessageHandler):
@@ -116,28 +129,51 @@ class ChannelsHandler(MessageHandler):
 
     @staticmethod
     def _build_chats_keyboard(chats):
-        keyboard, buttons = [], []
-        for i, chat in enumerate(chats):
-            buttons.append({
-                "text": chat.title,
-                "callback_data": json.dumps({
-                    "action": "select_channel",
-                    "channel_id": chat.chat_id,
-                })
-            })
-
-            if i % 2 == 1:
-                keyboard.append(buttons)
-                buttons = []
-
-        if buttons:
-            keyboard.append(buttons)
-
-        return keyboard
+        return make_keyboard(
+            (
+                chat.title, {"a": "select_channel", "cid": chat.chat_id}
+            ) for chat in chats
+        )
 
 
 class SelectChannelHandler(CallbackHandler):
     key = "select_channel"
+
+    response = (
+        "Select the time period to display the stats for channel \"{channel}\":"
+    )
+
+    async def _process_update(self):
+        if not (channel_id := self.callback.data.get("cid")):
+            logger.warning("No `cid` in callback data, aborting handler")
+            return
+
+        keyboard = make_keyboard([
+            ("1 week", {"a": "get_stats", "cid": channel_id, "p": "w"}),
+            ("1 month", {"a": "get_stats", "cid": channel_id, "p": "m"}),
+        ])
+
+        chat_dto = await chat_dao.get_chat(channel_id)
+
+        if not chat_dto:
+            logger.warnring(
+                f"Channel channel_id={channel_id} not found, aborting handler"
+            )
+            return
+
+        res = await asyncio.gather(
+            self.bot_api.answer_callback(self.callback.id),
+            self.bot_api.edit_message_text(
+                self.message.chat.id,
+                self.message.message_id,
+                self.response.format(channel=chat_dto.title),
+                reply_markup={"inline_keyboard": keyboard},
+            )
+        )
+
+
+class GetStatsHandler(CallbackHandler):
+    key = "get_stats"
 
     response_no_message = (
         "No messages found in the selected time period for channel "
@@ -145,30 +181,51 @@ class SelectChannelHandler(CallbackHandler):
     )
 
     STATS_PER_MESSAGE = 15
+    POSTING_DELAY_SEC = 0.5
 
     async def _process_update(self):
-        if not (channel_id := self.callback.data.get("channel_id")):
-            logger.warning("No `channel_id` in callback data, aborting handler")
+        if not (channel_id := self.callback.data.get("cid")):
+            logger.warning("No `cid` in callback data, aborting handler")
             return
 
-        message_stats = await stats_service.get_report(channel_id)
-        answer_task = asyncio.create_task(
+        if not (period := self.callback.data.get("p")):
+            logger.warning("No `p` in callback data, aborting handler")
+            return
+
+        if period == "w":
+            weeks_back = 1
+        elif period == "m":
+            weeks_back = 4
+        else:
+            logger.warning(f"Invalid `period` \"{period}\", aborting handler")
+            return
+
+        message_stats = await stats_service.get_report(channel_id, weeks_back)
+        response_task = asyncio.gather(
+            self.bot_api.delete_message(self.message.chat.id, self.message.message_id),
             self.bot_api.answer_callback(self.callback.id)
         )
 
-        message = self.callback.message
         if not message_stats:
             chat_dto = await chat_dao.get_chat(channel_id)
             await self.bot_api.post_message(
-                message.chat.id,
+                self.message.chat.id,
                 self.response_no_message.format(channel_title=chat_dto.title),
             )
-            await asyncio.gather(answer_task)
+            await asyncio.gather(response_task)
             return
 
-        for stats_group in batch(message_stats, n=self.STATS_PER_MESSAGE):
+        num_messages = (len(message_stats) // self.STATS_PER_MESSAGE) + 1
+        groups = batch(message_stats, n=self.STATS_PER_MESSAGE)
+        for i, stats_group in enumerate(groups):
             report = "".join(stats_group)
-            await self.bot_api.post_message(message.chat.id, report)
+            start = time.monotonic()
+            await self.bot_api.post_message(self.message.chat.id, report)
+            elapsed = time.monotonic() - start
+            if i < num_messages - 1:
+                sleep_time = self.POSTING_DELAY_SEC - elapsed
+                if sleep_time > 0:
+                    await asyncio.sleep(sleep_time)
 
-        await asyncio.gather(answer_task)
+        await asyncio.gather(response_task)
 

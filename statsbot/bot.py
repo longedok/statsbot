@@ -79,7 +79,7 @@ class Bot:
                 key = "forward"
         elif callback_json := update_json.get("callback_query"):
             update = Callback.from_json(callback_json)
-            key = update.data.get("action")
+            key = update.data.get("a")
 
         if key is None:
             logger.warning("Unrecognized update type, skipping processing")

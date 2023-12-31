@@ -8,13 +8,13 @@ logger = logging.getLogger(__name__)
 
 
 class BotApiClient:
+    TIMEOUT = 15
     LONG_POLLING_TIMEOUT = 60
-    DEFAULT_TIMEOUT = 15
     BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
     def __init__(self):
         self.last_update_id = None
-        self.http_client = httpx.AsyncClient(timeout=self.DEFAULT_TIMEOUT)
+        self.http_client = httpx.AsyncClient(timeout=self.TIMEOUT)
         self.headers = {"Content-Type": "application/json"}
 
     @property
@@ -70,7 +70,9 @@ class BotApiClient:
 
         return await self._post("answerCallbackQuery", json=body)
 
-    async def edit_message_text(self, chat_id, message_id, text, parse_mode="HTML"):
+    async def edit_message_text(
+        self, chat_id, message_id, text, parse_mode="HTML", reply_markup=None,
+    ):
         body = {
             "chat_id": chat_id,
             "message_id": message_id,
@@ -78,5 +80,16 @@ class BotApiClient:
             "parse_mode": parse_mode,
         }
 
+        if reply_markup:
+            body["reply_markup"] = reply_markup
+
         return await self._post("editMessageText", json=body)
+
+    async def delete_message(self, chat_id, message_id):
+        body = {
+            "chat_id": chat_id,
+            "message_id": message_id,
+        }
+
+        return await self._post("deleteMessage", json=body)
 

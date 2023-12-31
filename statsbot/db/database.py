@@ -1,7 +1,7 @@
 from psycopg.rows import dict_row
 
 import logging
-from psycopg import AsyncConnection
+from psycopg import AsyncConnection, AsyncClientCursor
 from contextlib import asynccontextmanager
 
 from settings import QDB_HOST, QDB_POSTGRES_PORT, QDB_USER, QDB_PASSWORD
@@ -28,6 +28,8 @@ class Database:
             password=QDB_PASSWORD,
             autocommit=True,
             row_factory=dict_row,
+            # QuestDB seems to have issues with server-side parameter binding
+            cursor_factory=AsyncClientCursor,
         )
 
         logger.info("Database connection established")
@@ -42,7 +44,7 @@ class Database:
     @asynccontextmanager
     async def _execute(self, query, params=None):
         async with self.conn.cursor() as cur:
-            logging.debug("Executing query %s with params %s", query, params)
+            logging.debug("Executing query=\"%s\" with params=%s", query, params)
             await cur.execute(query, params)
             yield cur
 

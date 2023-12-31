@@ -8,12 +8,7 @@ def to_timestamp(date):
 
 
 class BaseDao:
-    INSERT_SQL = """
-        INSERT INTO {table}
-            ({fields})
-        VALUES
-            ({values});
-    """
+    INSERT_SQL = "INSERT INTO {table} ({fields}) VALUES ({values});"
 
     def __init__(self, db):
         self.db = db
@@ -53,9 +48,7 @@ message_dao = MessageDao(db)
 class ChatDao(BaseDao):
 
     async def get_chat(self, chat_id):
-        sql = """
-        SELECT chat_id, title, created_at FROM chats WHERE chat_id = %s;
-        """
+        sql = "SELECT chat_id, title, created_at FROM chats WHERE chat_id = %s;"
 
         if row := await self.db.fetch_one(sql, (str(chat_id),)):
             return self._make_chat_dto(row)
@@ -63,9 +56,7 @@ class ChatDao(BaseDao):
         return None
 
     async def get_chats(self):
-        sql = """
-        SELECT chat_id, title, created_at FROM chats;
-        """
+        sql = "SELECT chat_id, title, created_at FROM chats;"
 
         chats = []
         for row in await self.db.fetch_all(sql):
@@ -94,9 +85,7 @@ chat_dao = ChatDao(db)
 
 class UserDao(BaseDao):
     async def get_user(self, user_id):
-        sql = """
-        SELECT user_id, username, created_at FROM users WHERE user_id = %s;
-        """
+        sql = "SELECT user_id, username, created_at FROM users WHERE user_id = '%s';"
 
         if row := await self.db.fetch_one(sql, (str(user_id),)):
             return UserDto(int(row["user_id"]), row["username"], row["created_at"])

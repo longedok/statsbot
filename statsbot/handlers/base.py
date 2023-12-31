@@ -46,6 +46,10 @@ class MessageHandler(Handler):
 
 class CallbackHandler(Handler):
     @cached_property
+    def message(self):
+        return self.update.message
+
+    @cached_property
     def callback(self):
         return self.update
 
