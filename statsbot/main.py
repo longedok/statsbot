@@ -24,12 +24,11 @@ def main():
     questdb_ingester.start()
 
     bot = Bot()
+    stats_collector = StatsCollector(questdb_ingester)
 
     async def run():
-        await asyncio.gather(bot.find_dialog(), db.connect())
+        await db.connect()
         await create_schema()
-        stats_collector = StatsCollector(questdb_ingester, bot.channel_id)
-
         await asyncio.gather(bot.start(), stats_collector.start())
 
     with telegram_client:

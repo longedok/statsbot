@@ -4,46 +4,26 @@ import logging
 from bot_api.client import BotApiClient
 from bot_api.models import Message, Callback
 from handlers import HandlerRegistry
-from settings import CHAT_TITLE
 from telegram_client import telegram_client
 
 logger = logging.getLogger(__name__)
 
 
-NOT_FOUND = object()
-
-
 class Bot:
     def __init__(self):
         self.bot_api = BotApiClient()
-        self._channel_id = None
-
-    @property
-    def channel_id(self):
-        assert self._channel_id is not None, (
-            "You must call `find_dialog()` before accessing `channel_id`"
-        )
-
-        if self._channel_id is NOT_FOUND:
-            return None
-
-        return self._channel_id
 
     async def start(self):
-        if self._channel_id is None:
-            await self.find_dialog()
+        # populate entity cache
+        await self.load_dialogs()
         await asyncio.gather(self._set_commands(), self._process_updates())
 
-    async def find_dialog(self, title=CHAT_TITLE, limit=10):
-        logger.info(f"Searching for dialog \"{title}\"")
+    async def load_dialogs(self, limit=20):
+        logger.info("Start loading dialogs")
+
         dialogs = await telegram_client.get_dialogs(limit=limit)
-        for dialog in dialogs:
-            if title in dialog.name.lower():
-                self._channel_id = dialog.entity.id
-                logger.info(f"Dialog \"{title}\" found: channel_id={self._channel_id}")
-                return dialog
-        self._channel_id = NOT_FOUND
-        logger.info(f"Dialog \"{title}\" not found")
+
+        logger.info("Finish loading dialogs")
 
     async def _set_commands(self):
         logger.info("Start setting bot commands")
